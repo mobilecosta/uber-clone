@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uber Clone - Simulador Integrado</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body style="overflow: hidden;">
+
+    <div class="portal-container">
+        <!-- Portal Top Header Controls -->
+        <header class="portal-header">
+            <div class="portal-title">
+                <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-blue);"></i> Uber<span>Clone Simulator</span>
+            </div>
+            
+            <div class="portal-controls">
+                <button id="btn-mode-split" class="btn-mode active">
+                    <i class="fa-solid fa-table-columns"></i> Lado a Lado (Split)
+                </button>
+                <button id="btn-mode-passenger" class="btn-mode">
+                    <i class="fa-solid fa-user"></i> Passageiro
+                </button>
+                <button id="btn-mode-driver" class="btn-mode">
+                    <i class="fa-solid fa-car"></i> Motorista
+                </button>
+                <button id="btn-mode-admin" class="btn-mode">
+                    <i class="fa-solid fa-gauge-high"></i> Admin
+                </button>
+                
+                <span style="height: 20px; width: 1px; background: var(--border-color); margin: 0 4px;"></span>
+                
+                <button onclick="resetCredentials()" class="btn-mode" style="border-color: rgba(239, 68, 68, 0.3); color: var(--accent-red);">
+                    <i class="fa-solid fa-trash-can"></i> Limpar Supabase
+                </button>
+            </div>
+        </header>
+
+        <!-- Área dos Painéis (Split Screen por padrão) -->
+        <div id="split-workspace" class="split-workspace">
+            
+            <!-- Painel Passageiro -->
+            <div id="pane-passenger" class="workspace-pane">
+                <iframe src="passenger.html" id="iframe-passenger"></iframe>
+            </div>
+
+            <!-- Painel Motorista -->
+            <div id="pane-driver" class="workspace-pane">
+                <iframe src="driver.html" id="iframe-driver"></iframe>
+            </div>
+
+            <!-- Painel Admin -->
+            <div id="pane-admin" class="workspace-pane">
+                <iframe src="admin.html" id="iframe-admin"></iframe>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const btnSplit = document.getElementById('btn-mode-split');
+        const btnPassenger = document.getElementById('btn-mode-passenger');
+        const btnDriver = document.getElementById('btn-mode-driver');
+        const btnAdmin = document.getElementById('btn-mode-admin');
+
+        const panePassenger = document.getElementById('pane-passenger');
+        const paneDriver = document.getElementById('pane-driver');
+        const paneAdmin = document.getElementById('pane-admin');
+
+        const allButtons = [btnSplit, btnPassenger, btnDriver, btnAdmin];
+        const allPanes = [panePassenger, paneDriver, paneAdmin];
+
+        // Lógica de alternar Modos de Exibição
+        btnSplit.addEventListener('click', () => {
+            setActiveButton(btnSplit);
+            allPanes.forEach(pane => {
+                pane.style.display = 'block';
+                pane.style.flex = '1';
+            });
+        });
+
+        btnPassenger.addEventListener('click', () => {
+            setActiveButton(btnPassenger);
+            showSinglePane(panePassenger);
+        });
+
+        btnDriver.addEventListener('click', () => {
+            setActiveButton(btnDriver);
+            showSinglePane(paneDriver);
+        });
+
+        btnAdmin.addEventListener('click', () => {
+            setActiveButton(btnAdmin);
+            showSinglePane(paneAdmin);
+        });
+
+        function setActiveButton(activeBtn) {
+            allButtons.forEach(btn => btn.classList.remove('active'));
+            activeBtn.classList.add('active');
+        }
+
+        function showSinglePane(activePane) {
+            allPanes.forEach(pane => {
+                if (pane === activePane) {
+                    pane.style.display = 'block';
+                    pane.style.flex = 'none';
+                    pane.style.width = '100%';
+                } else {
+                    pane.style.display = 'none';
+                }
+            });
+        }
+
+        function resetCredentials() {
+            if (confirm("Isso removerá a conexão com o Supabase atual. Deseja continuar?")) {
+                localStorage.removeItem('supabase_url');
+                localStorage.removeItem('supabase_key');
+                
+                // Recarrega todos os iframes para disparar o popup de credenciais neles
+                document.getElementById('iframe-passenger').contentWindow.location.reload();
+                document.getElementById('iframe-driver').contentWindow.location.reload();
+                document.getElementById('iframe-admin').contentWindow.location.reload();
+                
+                alert("Credenciais removidas. Insira as novas chaves nos modais das janelas.");
+            }
+        }
+    </script>
+</body>
+</html>

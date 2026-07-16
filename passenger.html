@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uber Passageiro - Clone</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Font Awesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="app-header">
+                <div class="logo"><i class="fa-solid fa-layer-group"></i> Uber<span>Passageiro</span></div>
+                <div id="connection-status" class="badge badge-offline"><i class="fa-solid fa-circle-xmark"></i> Desconectado</div>
+            </div>
+
+            <!-- Login / Identificação do Passageiro -->
+            <div id="passenger-setup-card" class="glass-card" style="margin-bottom: 16px;">
+                <h3 style="margin-bottom: 12px; font-size: 14px; font-weight: 700;"><i class="fa-solid fa-user-astronaut"></i> Seu Perfil</h3>
+                <div class="input-group">
+                    <label for="passenger-name">Nome do Passageiro</label>
+                    <input type="text" id="passenger-name" class="input-control" value="Carlos Passageiro">
+                </div>
+                <button id="btn-login-passenger" class="btn-primary">Entrar no App</button>
+            </div>
+
+            <!-- Formulário de Viagem (Oculto até login) -->
+            <div id="ride-request-form" style="display: none;">
+                <div class="glass-card" style="margin-bottom: 16px;">
+                    <h3 style="margin-bottom: 12px; font-size: 14px; font-weight: 700;"><i class="fa-solid fa-map-location-dot"></i> Para onde vamos?</h3>
+                    
+                    <div class="input-group">
+                        <label for="select-origin">Ponto de Partida</label>
+                        <select id="select-origin" class="input-control">
+                            <option value="">Selecione a Origem...</option>
+                            <!-- Preenchido via JS -->
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="select-destination">Destino</label>
+                        <select id="select-destination" class="input-control">
+                            <option value="">Selecione o Destino...</option>
+                            <!-- Preenchido via JS -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Categorias de Carro -->
+                <div id="categories-panel" class="glass-card" style="margin-bottom: 16px; display: none;">
+                    <h3 style="margin-bottom: 12px; font-size: 14px; font-weight: 700;"><i class="fa-solid fa-car-side"></i> Escolha a Categoria</h3>
+                    <div id="categories-list">
+                        <!-- Gerado dinamicamente -->
+                    </div>
+                    <button id="btn-request-ride" class="btn-primary" style="margin-top: 12px;"><i class="fa-solid fa-angles-right"></i> Confirmar Solicitação</button>
+                </div>
+            </div>
+
+            <!-- Card de Corrida Ativa -->
+            <div id="active-ride-card" class="glass-card" style="display: none; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span id="ride-status-badge" class="badge badge-status">Procurando...</span>
+                    <span id="ride-price-val" style="font-weight: 700;">R$ 0,00</span>
+                </div>
+                
+                <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 12px;">
+                    <p style="font-size: 12px; color: var(--text-secondary);"><i class="fa-solid fa-user-tie"></i> Motorista</p>
+                    <h4 id="driver-name-display" style="font-size: 14px; margin-top: 2px;">Buscando motorista parceiro...</h4>
+                    <p id="ride-category-display" style="font-size: 11px; color: var(--accent-blue); margin-top: 2px;"></p>
+                </div>
+
+                <div id="ride-eta-box" style="font-size: 13px; margin-bottom: 12px; color: var(--accent-yellow);">
+                    <i class="fa-solid fa-clock"></i> Tempo estimado: <span id="ride-eta-val">Calculando...</span>
+                </div>
+
+                <!-- Chat Integrado -->
+                <div id="passenger-chat-box" style="display: none;">
+                    <h4 style="font-size: 12px; font-weight: 700; margin-bottom: 8px;"><i class="fa-solid fa-comments"></i> Mensagens</h4>
+                    <div class="chat-container">
+                        <div id="chat-messages-list" class="chat-messages">
+                            <!-- Mensagens -->
+                        </div>
+                        <div class="chat-input-bar">
+                            <input type="text" id="chat-input-text" class="chat-input" placeholder="Enviar mensagem ao motorista...">
+                            <button id="btn-send-message" class="btn-send-chat"><i class="fa-solid fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="btn-cancel-ride" class="btn-secondary" style="margin-top: 12px; color: var(--accent-red); border-color: rgba(239, 68, 68, 0.2);"><i class="fa-solid fa-circle-xmark"></i> Cancelar Corrida</button>
+            </div>
+
+            <!-- Tela de Feedback/Finalização -->
+            <div id="rating-card" class="glass-card" style="display: none;">
+                <h3 style="margin-bottom: 12px; font-size: 16px; font-weight: 700; text-align: center;"><i class="fa-solid fa-circle-check" style="color: var(--accent-green);"></i> Viagem Concluída!</h3>
+                <p style="font-size: 13px; text-align: center; color: var(--text-secondary); margin-bottom: 16px;">Como foi sua viagem com <span id="rating-driver-name">o motorista</span>?</p>
+                
+                <div style="display: flex; justify-content: center; gap: 12px; font-size: 24px; margin-bottom: 20px; color: var(--text-secondary);">
+                    <i class="fa-star fa-regular star-btn" data-star="1" style="cursor:pointer;"></i>
+                    <i class="fa-star fa-regular star-btn" data-star="2" style="cursor:pointer;"></i>
+                    <i class="fa-star fa-regular star-btn" data-star="3" style="cursor:pointer;"></i>
+                    <i class="fa-star fa-regular star-btn" data-star="4" style="cursor:pointer;"></i>
+                    <i class="fa-star fa-regular star-btn" data-star="5" style="cursor:pointer;"></i>
+                </div>
+
+                <button id="btn-submit-rating" class="btn-primary">Enviar Avaliação</button>
+            </div>
+
+            <button onclick="clearSupabaseCredentials()" class="btn-secondary" style="margin-top: auto; font-size: 11px; padding: 6px;"><i class="fa-solid fa-gears"></i> Alterar Supabase</button>
+        </div>
+
+        <!-- Mapa -->
+        <div id="map" class="map-container"></div>
+    </div>
+
+    <!-- Supabase Client & Leaflet JS -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script src="js/supabase-config.js"></script>
+    <script src="js/shared.js"></script>
+    
+    <script>
+        // Lógica do App do Passageiro
+        let map, passengerMarker, driverMarker, destMarker, routeLine;
+        let myProfileId = localStorage.getItem('passenger_profile_id') || null;
+        let activeRideId = null;
+        let selectedCategory = 'UberX';
+        let rideSubscription = null;
+        let driverLocationSubscription = null;
+        let chatSubscription = null;
+
+        // Ao carregar a página
+        window.addEventListener('DOMContentLoaded', () => {
+            checkSupabaseConnection();
+            initMap();
+            populatePresets();
+            setupEventListeners();
+            
+            if (supabaseClient) {
+                document.getElementById('connection-status').className = "badge badge-online";
+                document.getElementById('connection-status').innerHTML = `<i class="fa-solid fa-wifi"></i> Conectado`;
+                
+                if (myProfileId) {
+                    loadPassengerSession();
+                }
+            }
+        });
+
+        function initMap() {
+            // Inicializa o mapa centralizado em São Paulo
+            map = L.map('map', { zoomControl: false }).setView([-23.5615, -46.6560], 13);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+            }).addTo(map);
+        }
+
+        function populatePresets() {
+            const selectOrigin = document.getElementById('select-origin');
+            const selectDest = document.getElementById('select-destination');
+
+            for (const key in PRESET_LOCATIONS) {
+                const opt1 = document.createElement('option');
+                opt1.value = key;
+                opt1.textContent = PRESET_LOCATIONS[key].name;
+                selectOrigin.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = key;
+                opt2.textContent = PRESET_LOCATIONS[key].name;
+                selectDest.appendChild(opt2);
+            }
+
+            // Seleções padrão
+            selectOrigin.value = "av_paulista";
+            selectDest.value = "pq_ibirapuera";
+        }
+
+        function setupEventListeners() {
+            // Login
+            document.getElementById('btn-login-passenger').addEventListener('click', loginPassenger);
+            
+            // Rota mudando
+            document.getElementById('select-origin').addEventListener('change', calculateRoutePreview);
+            document.getElementById('select-destination').addEventListener('change', calculateRoutePreview);
+
+            // Solicitar Corrida
+            document.getElementById('btn-request-ride').addEventListener('click', requestRide);
+
+            // Cancelar
+            document.getElementById('btn-cancel-ride').addEventListener('click', cancelRide);
+
+            // Chat enviar
+            document.getElementById('btn-send-message').addEventListener('click', sendChatMessage);
+            document.getElementById('chat-input-text').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendChatMessage();
+            });
+
+            // Avaliação
+            let selectedRating = 5;
+            document.querySelectorAll('.star-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    selectedRating = parseInt(e.target.dataset.star);
+                    document.querySelectorAll('.star-btn').forEach(star => {
+                        const starVal = parseInt(star.dataset.star);
+                        if (starVal <= selectedRating) {
+                            star.classList.replace('fa-regular', 'fa-solid');
+                            star.style.color = 'var(--accent-yellow)';
+                        } else {
+                            star.classList.replace('fa-solid', 'fa-regular');
+                            star.style.color = 'var(--text-secondary)';
+                        }
+                    });
+                });
+            });
+
+            document.getElementById('btn-submit-rating').addEventListener('click', () => {
+                submitRating(selectedRating);
+            });
+        }
+
+        async function loginPassenger() {
+            const name = document.getElementById('passenger-name').value.trim();
+            if (!name) return alert('Por favor, informe seu nome.');
+
+            if (!supabaseClient) return alert('Supabase não conectado.');
+
+            try {
+                // Tenta buscar perfil existente ou criar novo
+                const email = `${name.toLowerCase().replace(/\s+/g, '')}@uberclone.com`;
+                let { data: profile, error } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .eq('email', email)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') throw error;
+
+                if (!profile) {
+                    // Cadastra
+                    const { data: newProfile, error: insertError } = await supabaseClient
+                        .from('profiles')
+                        .insert([{ name, email, role: 'passenger', status: 'active' }])
+                        .select()
+                        .single();
+
+                    if (insertError) throw insertError;
+                    profile = newProfile;
+                }
+
+                myProfileId = profile.id;
+                localStorage.setItem('passenger_profile_id', myProfileId);
+                loadPassengerSession();
+                
+            } catch (err) {
+                console.error("Erro no login:", err);
+                alert("Falha no login com Supabase. Certifique-se de que a tabela 'profiles' existe.");
+            }
+        }
+
+        function loadPassengerSession() {
+            document.getElementById('passenger-setup-card').style.display = 'none';
+            document.getElementById('ride-request-form').style.display = 'block';
+            calculateRoutePreview();
+            checkForActiveRide();
+        }
+
+        // Verifica se o passageiro já tem uma corrida ativa no Supabase
+        async function checkForActiveRide() {
+            if (!supabaseClient || !myProfileId) return;
+
+            const { data: rides, error } = await supabaseClient
+                .from('rides')
+                .select('*, driver:driver_id(name)')
+                .eq('passenger_id', myProfileId)
+                .in('status', ['requested', 'accepted', 'arrived', 'in_progress'])
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (error) {
+                console.error("Erro ao buscar corrida ativa: ", error);
+                return;
+            }
+
+            if (rides && rides.length > 0) {
+                setupActiveRide(rides[0]);
+            }
+        }
+
+        // Desenha a prévia do caminho e atualiza preços
+        function calculateRoutePreview() {
+            const oKey = document.getElementById('select-origin').value;
+            const dKey = document.getElementById('select-destination').value;
+
+            if (!oKey || !dKey || oKey === dKey) {
+                document.getElementById('categories-panel').style.display = 'none';
+                clearRouteLayer();
+                return;
+            }
+
+            const origin = PRESET_LOCATIONS[oKey];
+            const dest = PRESET_LOCATIONS[dKey];
+
+            // Posiciona marcadores
+            clearRouteLayer();
+            passengerMarker = L.marker([origin.lat, origin.lng], { icon: getPassengerMarkerIcon() }).addTo(map);
+            destMarker = L.marker([dest.lat, dest.lng], { icon: getDestinationMarkerIcon() }).addTo(map);
+            
+            // Desenha linha da rota
+            const routeCoords = generateRouteCoordinates(origin.lat, origin.lng, dest.lat, dest.lng);
+            routeLine = L.polyline(routeCoords, { color: 'var(--accent-blue)', weight: 4, opacity: 0.8 }).addTo(map);
+            
+            // Ajusta zoom
+            const bounds = L.latLngBounds([origin.lat, origin.lng], [dest.lat, dest.lng]);
+            map.fitBounds(bounds, { padding: [50, 50] });
+
+            // Calcula distância e gera painel de categorias
+            const dist = calculateDistance(origin.lat, origin.lng, dest.lat, dest.lng);
+            renderCategories(dist);
+        }
+
+        function clearRouteLayer() {
+            if (passengerMarker) map.removeLayer(passengerMarker);
+            if (destMarker) map.removeLayer(destMarker);
+            if (routeLine) map.removeLayer(routeLine);
+            if (driverMarker) map.removeLayer(driverMarker);
+        }
+
+        function renderCategories(distanceKm) {
+            const list = document.getElementById('categories-list');
+            list.innerHTML = '';
+
+            for (const key in CATEGORIES) {
+                const cat = CATEGORIES[key];
+                const price = estimateFare(distanceKm, key).toFixed(2);
+                
+                const card = document.createElement('div');
+                card.className = `category-card ${selectedCategory === key ? 'selected' : ''}`;
+                card.dataset.category = key;
+                card.dataset.price = price;
+                card.innerHTML = `
+                    <div class="category-info">
+                        <div class="category-icon">${cat.icon}</div>
+                        <div class="category-details">
+                            <h4>${cat.name}</h4>
+                            <p>${(distanceKm).toFixed(1)} km • ${Math.round(distanceKm * 2.5 * cat.etaMultiplier)} min</p>
+                        </div>
+                    </div>
+                    <div class="category-price">R$ ${price.replace('.', ',')}</div>
+                `;
+
+                card.addEventListener('click', (e) => {
+                    document.querySelectorAll('.category-card').forEach(c => c.classList.remove('selected'));
+                    const targetCard = e.currentTarget;
+                    targetCard.classList.add('selected');
+                    selectedCategory = targetCard.dataset.category;
+                });
+
+                list.appendChild(card);
+            }
+
+            document.getElementById('categories-panel').style.display = 'block';
+        }
+
+        // Envia solicitação de corrida ao Supabase
+        async function requestRide() {
+            const oKey = document.getElementById('select-origin').value;
+            const dKey = document.getElementById('select-destination').value;
+            
+            if (!oKey || !dKey || !myProfileId) return;
+
+            const origin = PRESET_LOCATIONS[oKey];
+            const dest = PRESET_LOCATIONS[dKey];
+            const distance = calculateDistance(origin.lat, origin.lng, dest.lat, dest.lng);
+            const price = parseFloat(estimateFare(distance, selectedCategory).toFixed(2));
+
+            const newRide = {
+                passenger_id: myProfileId,
+                origin_address: origin.name,
+                origin_lat: origin.lat,
+                origin_lng: origin.lng,
+                dest_address: dest.name,
+                dest_lat: dest.lat,
+                dest_lng: dest.lng,
+                category: selectedCategory,
+                status: 'requested',
+                price: price
+            };
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('rides')
+                    .insert([newRide])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                setupActiveRide(data);
+                
+            } catch (err) {
+                console.error("Erro ao solicitar corrida: ", err);
+                alert("Falha ao registrar corrida. Verifique as tabelas do Supabase.");
+            }
+        }
+
+        // Configura o estado da interface para a corrida ativa
+        function setupActiveRide(ride) {
+            activeRideId = ride.id;
+            
+            document.getElementById('ride-request-form').style.display = 'none';
+            document.getElementById('active-ride-card').style.display = 'block';
+            document.getElementById('ride-price-val').textContent = `R$ ${parseFloat(ride.price).toFixed(2).replace('.', ',')}`;
+            document.getElementById('ride-category-display').textContent = ride.category;
+
+            // Inscreve no Realtime para atualizações na linha desta corrida
+            subscribeToRideUpdates();
+
+            // Atualiza status local
+            updateRideStatusUI(ride);
+
+            if (ride.driver_id) {
+                loadDriverDetails(ride.driver_id);
+            }
+        }
+
+        function updateRideStatusUI(ride) {
+            const badge = document.getElementById('ride-status-badge');
+            const chatBox = document.getElementById('passenger-chat-box');
+            
+            badge.textContent = translateStatus(ride.status);
+            
+            if (ride.status === 'requested') {
+                badge.className = "badge badge-status";
+                document.getElementById('driver-name-display').textContent = "Buscando motorista parceiro...";
+                document.getElementById('ride-eta-val').textContent = "Calculando...";
+                chatBox.style.display = 'none';
+            } else if (ride.status === 'accepted') {
+                badge.className = "badge badge-online";
+                chatBox.style.display = 'block';
+                subscribeToChat();
+                trackDriverLocation(ride.driver_id);
+            } else if (ride.status === 'arrived') {
+                badge.className = "badge badge-online badge-pulse";
+                badge.textContent = "Motorista Chegou";
+                document.getElementById('ride-eta-val').textContent = "Motorista no local de partida!";
+            } else if (ride.status === 'in_progress') {
+                badge.className = "badge badge-online";
+                badge.textContent = "Em viagem";
+                document.getElementById('ride-eta-val').textContent = "A caminho do destino...";
+                // Passageiro não pode mais cancelar
+                document.getElementById('btn-cancel-ride').style.display = 'none';
+            } else if (ride.status === 'completed') {
+                finalizeRideFlow(ride);
+            } else if (ride.status === 'cancelled') {
+                alert('A corrida foi cancelada.');
+                resetToRequest();
+            }
+        }
+
+        function translateStatus(status) {
+            const m = {
+                'requested': 'Procurando...',
+                'accepted': 'Aceito',
+                'arrived': 'Chegou',
+                'in_progress': 'Em viagem',
+                'completed': 'Concluído',
+                'cancelled': 'Cancelado'
+            };
+            return m[status] || status;
+        }
+
+        async function loadDriverDetails(driverId) {
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .select('name')
+                .eq('id', driverId)
+                .single();
+
+            if (data) {
+                document.getElementById('driver-name-display').innerHTML = `<i class="fa-solid fa-user-astronaut"></i> ${data.name}`;
+                document.getElementById('rating-driver-name').textContent = data.name;
+            }
+        }
+
+        // Inscreve-se nas atualizações da corrida
+        function subscribeToRideUpdates() {
+            if (rideSubscription) supabaseClient.removeChannel(rideSubscription);
+
+            rideSubscription = supabaseClient
+                .channel(`ride_${activeRideId}`)
+                .on('postgres_changes', { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'rides', 
+                    filter: `id=eq.${activeRideId}` 
+                }, payload => {
+                    const updatedRide = payload.new;
+                    updateRideStatusUI(updatedRide);
+                    
+                    if (updatedRide.driver_id && !driverLocationSubscription) {
+                        loadDriverDetails(updatedRide.driver_id);
+                        trackDriverLocation(updatedRide.driver_id);
+                    }
+                })
+                .subscribe();
+        }
+
+        // Rastreia a localização em tempo real do motorista
+        function trackDriverLocation(driverId) {
+            if (driverLocationSubscription) supabaseClient.removeChannel(driverLocationSubscription);
+
+            // Adiciona marcador do motorista se não houver
+            if (!driverMarker) {
+                driverMarker = L.marker([-23.56, -46.65], { icon: getDriverMarkerIcon('busy') }).addTo(map);
+            }
+
+            driverLocationSubscription = supabaseClient
+                .channel(`driver_loc_${driverId}`)
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'rides',
+                    filter: `id=eq.${activeRideId}`
+                }, payload => {
+                    const ride = payload.new;
+                    if (ride.driver_lat && ride.driver_lng) {
+                        const newPos = [ride.driver_lat, ride.driver_lng];
+                        driverMarker.setLatLng(newPos);
+                        
+                        // Atualiza rota do motorista até a origem ou destino dependendo do status
+                        const targetLat = ride.status === 'accepted' ? ride.origin_lat : ride.dest_lat;
+                        const targetLng = ride.status === 'accepted' ? ride.origin_lng : ride.dest_lng;
+                        
+                        const distToTarget = calculateDistance(ride.driver_lat, ride.driver_lng, targetLat, targetLng);
+                        const mins = Math.round(distToTarget * 3.5);
+                        
+                        if (ride.status === 'accepted') {
+                            document.getElementById('ride-eta-val').textContent = `${mins} min até você (${distToTarget.toFixed(1)} km)`;
+                        } else if (ride.status === 'in_progress') {
+                            document.getElementById('ride-eta-val').textContent = `${mins} min para o destino (${distToTarget.toFixed(1)} km)`;
+                        }
+                    }
+                })
+                .subscribe();
+        }
+
+        // Cancela a corrida ativa
+        async function cancelRide() {
+            if (!activeRideId) return;
+
+            if (confirm("Deseja realmente cancelar esta viagem?")) {
+                try {
+                    await supabaseClient
+                        .from('rides')
+                        .update({ status: 'cancelled' })
+                        .eq('id', activeRideId);
+
+                    resetToRequest();
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+        }
+
+        function resetToRequest() {
+            activeRideId = null;
+            if (rideSubscription) supabaseClient.removeChannel(rideSubscription);
+            if (driverLocationSubscription) supabaseClient.removeChannel(driverLocationSubscription);
+            if (chatSubscription) supabaseClient.removeChannel(chatSubscription);
+            
+            rideSubscription = null;
+            driverLocationSubscription = null;
+            chatSubscription = null;
+
+            document.getElementById('active-ride-card').style.display = 'none';
+            document.getElementById('rating-card').style.display = 'none';
+            document.getElementById('btn-cancel-ride').style.display = 'block';
+            document.getElementById('ride-request-form').style.display = 'block';
+            
+            clearRouteLayer();
+            calculateRoutePreview();
+        }
+
+        function finalizeRideFlow(ride) {
+            if (rideSubscription) supabaseClient.removeChannel(rideSubscription);
+            if (driverLocationSubscription) supabaseClient.removeChannel(driverLocationSubscription);
+            
+            document.getElementById('active-ride-card').style.display = 'none';
+            document.getElementById('rating-card').style.display = 'block';
+        }
+
+        async function submitRating(stars) {
+            if (!activeRideId) return;
+
+            try {
+                await supabaseClient
+                    .from('rides')
+                    .update({ rating: stars })
+                    .eq('id', activeRideId);
+
+                alert('Obrigado pela avaliação!');
+                resetToRequest();
+            } catch (err) {
+                console.error(err);
+                resetToRequest();
+            }
+        }
+
+        // --- SISTEMA DE CHAT ---
+        async function subscribeToChat() {
+            if (!activeRideId || chatSubscription) return;
+
+            // Carrega mensagens antigas
+            const { data: messages } = await supabaseClient
+                .from('messages')
+                .select('*')
+                .eq('ride_id', activeRideId)
+                .order('created_at', { ascending: true });
+
+            const list = document.getElementById('chat-messages-list');
+            list.innerHTML = '';
+            
+            if (messages) {
+                messages.forEach(msg => appendMessageUI(msg.content, msg.sender_role === 'passenger'));
+            }
+
+            chatSubscription = supabaseClient
+                .channel(`chat_${activeRideId}`)
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages',
+                    filter: `ride_id=eq.${activeRideId}`
+                }, payload => {
+                    const newMsg = payload.new;
+                    appendMessageUI(newMsg.content, newMsg.sender_role === 'passenger');
+                })
+                .subscribe();
+        }
+
+        function appendMessageUI(text, isMine) {
+            const list = document.getElementById('chat-messages-list');
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${isMine ? 'mine' : 'other'}`;
+            bubble.textContent = text;
+            list.appendChild(bubble);
+            list.scrollTop = list.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input-text');
+            const content = input.value.trim();
+            if (!content || !activeRideId) return;
+
+            try {
+                await supabaseClient
+                    .from('messages')
+                    .insert([{
+                        ride_id: activeRideId,
+                        sender_role: 'passenger',
+                        content: content
+                    }]);
+                
+                input.value = '';
+            } catch (err) {
+                console.error("Erro ao enviar mensagem:", err);
+            }
+        }
+    </script>
+</body>
+</html>

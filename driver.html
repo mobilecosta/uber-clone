@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uber Motorista - Clone</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="app-header">
+                <div class="logo"><i class="fa-solid fa-car-rear"></i> Uber<span>Motorista</span></div>
+                <div id="connection-status" class="badge badge-offline"><i class="fa-solid fa-circle-xmark"></i> Desconectado</div>
+            </div>
+
+            <!-- Login / Identificação -->
+            <div id="driver-setup-card" class="glass-card" style="margin-bottom: 16px;">
+                <h3 style="margin-bottom: 12px; font-size: 14px; font-weight: 700;"><i class="fa-solid fa-id-card"></i> Cadastro de Parceiro</h3>
+                <div class="input-group">
+                    <label for="driver-name">Nome Completo</label>
+                    <input type="text" id="driver-name" class="input-control" value="Ronaldo Motorista">
+                </div>
+                <button id="btn-login-driver" class="btn-primary">Entrar no Modo Motorista</button>
+            </div>
+
+            <!-- Painel de Trabalho (Oculto até login) -->
+            <div id="driver-dashboard" style="display: none; height: 100%; display: flex; flex-direction: column; gap: 16px;">
+                <!-- Status Toggle -->
+                <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <p style="font-size: 11px; color: var(--text-secondary);">Seu Status</p>
+                        <h4 id="driver-status-text" style="font-size: 16px; font-weight: 700; color: var(--accent-red);">Ficar Online</h4>
+                    </div>
+                    <button id="btn-toggle-online" class="btn-primary" style="width: auto; padding: 8px 16px; background: var(--accent-red); color: white;"><i class="fa-solid fa-power-off"></i> Offline</button>
+                </div>
+
+                <!-- Resumo de Ganhos -->
+                <div class="glass-card">
+                    <p style="font-size: 11px; color: var(--text-secondary);"><i class="fa-solid fa-wallet"></i> Ganhos de Hoje</p>
+                    <h2 id="total-earnings" style="font-size: 26px; font-family: var(--font-heading); font-weight: 800; color: var(--accent-green); margin-top: 4px;">R$ 0,00</h2>
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;"><span id="completed-rides-count">0</span> viagens completadas</p>
+                </div>
+
+                <!-- Painel da Corrida Ativa -->
+                <div id="driver-active-ride-card" class="glass-card" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span id="driver-ride-status" class="badge badge-status">Aceito</span>
+                        <span id="driver-ride-price" style="font-weight: 700;">R$ 0,00</span>
+                    </div>
+
+                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 12px; font-size: 13px;">
+                        <p style="font-size: 11px; color: var(--text-secondary);"><i class="fa-solid fa-user"></i> Passageiro</p>
+                        <h4 id="passenger-name-display" style="font-weight: 600; margin-top: 2px;">Carlos</h4>
+                        
+                        <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
+                            <p style="font-size: 10px; color: var(--text-secondary);"><i class="fa-solid fa-location-dot"></i> Origem</p>
+                            <p id="ride-origin-text" style="font-size: 12px; word-break: break-all;"></p>
+                        </div>
+
+                        <div style="margin-top: 8px;">
+                            <p style="font-size: 10px; color: var(--text-secondary);"><i class="fa-solid fa-flag-checkered"></i> Destino</p>
+                            <p id="ride-dest-text" style="font-size: 12px; word-break: break-all;"></p>
+                        </div>
+                    </div>
+
+                    <!-- Chat Integrado -->
+                    <div id="driver-chat-box" style="margin-bottom: 16px;">
+                        <h4 style="font-size: 12px; font-weight: 700; margin-bottom: 8px;"><i class="fa-solid fa-comments"></i> Chat com Passageiro</h4>
+                        <div class="chat-container">
+                            <div id="driver-chat-messages-list" class="chat-messages">
+                                <!-- Mensagens -->
+                            </div>
+                            <div class="chat-input-bar">
+                                <input type="text" id="driver-chat-input-text" class="chat-input" placeholder="Enviar mensagem ao passageiro...">
+                                <button id="btn-driver-send-message" class="btn-send-chat"><i class="fa-solid fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Controles de Ação de Corrida -->
+                    <button id="btn-driver-action" class="btn-primary" style="background: var(--accent-green); color: white;"><i class="fa-solid fa-truck-fast"></i> Simular Deslocamento</button>
+                </div>
+            </div>
+
+            <button onclick="clearSupabaseCredentials()" class="btn-secondary" style="margin-top: auto; font-size: 11px; padding: 6px;"><i class="fa-solid fa-gears"></i> Alterar Supabase</button>
+        </div>
+
+        <!-- Pop-up Oferta de Corrida -->
+        <div id="ride-offer-card" class="glass-card ride-offer-card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span class="badge badge-status" style="background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); border-color: rgba(245,158,11,0.4);"><i class="fa-solid fa-bell"></i> Nova Oferta</span>
+                <span id="offer-price" style="font-size: 18px; font-weight: 800; color: var(--accent-green);">R$ 25,00</span>
+            </div>
+            
+            <div style="font-size: 13px; margin-bottom: 16px;">
+                <p style="color: var(--text-secondary); font-size: 11px;">Categoria</p>
+                <h4 id="offer-category" style="font-weight: 700; margin-bottom: 8px;">UberX</h4>
+                
+                <p style="color: var(--text-secondary); font-size: 11px;"><i class="fa-solid fa-location-dot"></i> Origem</p>
+                <p id="offer-origin" style="margin-bottom: 8px; font-weight: 500;"></p>
+                
+                <p style="color: var(--text-secondary); font-size: 11px;"><i class="fa-solid fa-flag-checkered"></i> Destino</p>
+                <p id="offer-dest" style="font-weight: 500;"></p>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-decline-offer" class="btn-secondary" style="flex: 1;"><i class="fa-solid fa-xmark"></i> Recusar</button>
+                <button id="btn-accept-offer" class="btn-primary" style="flex: 2; background: var(--accent-green); color: white;"><i class="fa-solid fa-check"></i> Aceitar (15s)</button>
+            </div>
+        </div>
+
+        <!-- Mapa -->
+        <div id="map" class="map-container"></div>
+    </div>
+
+    <!-- Supabase Client & Leaflet JS -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script src="js/supabase-config.js"></script>
+    <script src="js/shared.js"></script>
+
+    <script>
+        // Lógica do App do Motorista
+        let map, driverMarker, passengerMarker, destMarker, routeLine;
+        let myProfileId = localStorage.getItem('driver_profile_id') || null;
+        let isOnline = false;
+        let currentLatitude = -23.5615;
+        let currentLongitude = -46.6560;
+        let myEarnings = parseFloat(localStorage.getItem('driver_earnings') || '0.00');
+        let myRidesCount = parseInt(localStorage.getItem('driver_rides_count') || '0');
+
+        // Corrida Ativa
+        let activeRide = null;
+        let simulationInterval = null;
+        let offersSubscription = null;
+        let rideSubscription = null;
+        let chatSubscription = null;
+        let offerTimeout = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            checkSupabaseConnection();
+            initMap();
+            setupEventListeners();
+            updateEarningsUI();
+
+            if (supabaseClient) {
+                document.getElementById('connection-status').className = "badge badge-online";
+                document.getElementById('connection-status').innerHTML = `<i class="fa-solid fa-wifi"></i> Conectado`;
+                
+                if (myProfileId) {
+                    loadDriverSession();
+                }
+            }
+        });
+
+        function initMap() {
+            // Inicializa mapa
+            map = L.map('map', { zoomControl: false }).setView([currentLatitude, currentLongitude], 13);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+            }).addTo(map);
+
+            // Cria marcador inicial do carro
+            driverMarker = L.marker([currentLatitude, currentLongitude], { icon: getDriverMarkerIcon('available') }).addTo(map);
+        }
+
+        function updateEarningsUI() {
+            document.getElementById('total-earnings').textContent = `R$ ${myEarnings.toFixed(2).replace('.', ',')}`;
+            document.getElementById('completed-rides-count').textContent = myRidesCount;
+            localStorage.setItem('driver_earnings', myEarnings);
+            localStorage.setItem('driver_rides_count', myRidesCount);
+        }
+
+        function setupEventListeners() {
+            document.getElementById('btn-login-driver').addEventListener('click', loginDriver);
+            document.getElementById('btn-toggle-online').addEventListener('click', toggleOnlineStatus);
+            document.getElementById('btn-decline-offer').addEventListener('click', declineOffer);
+            document.getElementById('btn-accept-offer').addEventListener('click', acceptOffer);
+            document.getElementById('btn-driver-action').addEventListener('click', handleDriverAction);
+
+            // Chat
+            document.getElementById('btn-driver-send-message').addEventListener('click', sendChatMessage);
+            document.getElementById('driver-chat-input-text').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendChatMessage();
+            });
+        }
+
+        async function loginDriver() {
+            const name = document.getElementById('driver-name').value.trim();
+            if (!name) return alert('Por favor, informe seu nome.');
+
+            if (!supabaseClient) return alert('Supabase não conectado.');
+
+            try {
+                const email = `${name.toLowerCase().replace(/\s+/g, '')}@uberclone.com`;
+                let { data: profile, error } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .eq('email', email)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') throw error;
+
+                if (!profile) {
+                    const { data: newProfile, error: insertError } = await supabaseClient
+                        .from('profiles')
+                        .insert([{ name, email, role: 'driver', status: 'offline' }])
+                        .select()
+                        .single();
+
+                    if (insertError) throw insertError;
+                    profile = newProfile;
+                }
+
+                myProfileId = profile.id;
+                localStorage.setItem('driver_profile_id', myProfileId);
+                loadDriverSession();
+            } catch (err) {
+                console.error(err);
+                alert("Falha no login com Supabase.");
+            }
+        }
+
+        function loadDriverSession() {
+            document.getElementById('driver-setup-card').style.display = 'none';
+            document.getElementById('driver-dashboard').style.display = 'flex';
+            checkForActiveRide();
+        }
+
+        // Verifica se há alguma corrida ativa para este motorista
+        async function checkForActiveRide() {
+            if (!supabaseClient || !myProfileId) return;
+
+            const { data: rides } = await supabaseClient
+                .from('rides')
+                .select('*, passenger:passenger_id(name)')
+                .eq('driver_id', myProfileId)
+                .in('status', ['accepted', 'arrived', 'in_progress'])
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (rides && rides.length > 0) {
+                // Força ficar online visualmente
+                isOnline = true;
+                const toggleBtn = document.getElementById('btn-toggle-online');
+                toggleBtn.style.background = 'var(--accent-green)';
+                toggleBtn.innerHTML = `<i class="fa-solid fa-power-off"></i> Online`;
+                document.getElementById('driver-status-text').textContent = "Disponível para corridas";
+                document.getElementById('driver-status-text').style.color = "var(--accent-green)";
+                
+                setupRideActiveState(rides[0]);
+            }
+        }
+
+        // Liga/Desliga recebimento de corridas
+        async function toggleOnlineStatus() {
+            if (!myProfileId) return;
+            isOnline = !isOnline;
+
+            const toggleBtn = document.getElementById('btn-toggle-online');
+            const statusText = document.getElementById('driver-status-text');
+
+            if (isOnline) {
+                toggleBtn.style.background = 'var(--accent-green)';
+                toggleBtn.innerHTML = `<i class="fa-solid fa-power-off"></i> Online`;
+                statusText.textContent = "Disponível para corridas";
+                statusText.style.color = "var(--accent-green)";
+                driverMarker.setIcon(getDriverMarkerIcon('available'));
+                
+                await supabaseClient.from('profiles').update({ status: 'active' }).eq('id', myProfileId);
+                subscribeToOffers();
+            } else {
+                toggleBtn.style.background = 'var(--accent-red)';
+                toggleBtn.innerHTML = `<i class="fa-solid fa-power-off"></i> Offline`;
+                statusText.textContent = "Ficar Online";
+                statusText.style.color = "var(--accent-red)";
+                driverMarker.setIcon(getDriverMarkerIcon('offline'));
+                
+                await supabaseClient.from('profiles').update({ status: 'offline' }).eq('id', myProfileId);
+                unsubscribeFromOffers();
+                declineOffer();
+            }
+        }
+
+        // Inscreve no Realtime para ouvir novas corridas com status 'requested'
+        function subscribeToOffers() {
+            if (offersSubscription) unsubscribeFromOffers();
+
+            offersSubscription = supabaseClient
+                .channel('global_offers')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'rides',
+                    filter: 'status=eq.requested'
+                }, payload => {
+                    const ride = payload.new;
+                    // Se não tiver motorista associado e o motorista estiver livre
+                    if (!ride.driver_id && !activeRide && isOnline) {
+                        showOfferPopup(ride);
+                    }
+                })
+                .subscribe();
+        }
+
+        function unsubscribeFromOffers() {
+            if (offersSubscription) {
+                supabaseClient.removeChannel(offersSubscription);
+                offersSubscription = null;
+            }
+        }
+
+        function showOfferPopup(ride) {
+            activeRide = ride; // Armazena temporariamente a oferta
+            
+            document.getElementById('offer-price').textContent = `R$ ${parseFloat(ride.price).toFixed(2).replace('.', ',')}`;
+            document.getElementById('offer-category').textContent = ride.category;
+            document.getElementById('offer-origin').textContent = ride.origin_address;
+            document.getElementById('offer-dest').textContent = ride.dest_address;
+
+            document.getElementById('ride-offer-card').style.display = 'block';
+
+            // Timer de 15 segundos para aceitar
+            let seconds = 15;
+            const acceptBtn = document.getElementById('btn-accept-offer');
+            acceptBtn.innerHTML = `<i class="fa-solid fa-check"></i> Aceitar (${seconds}s)`;
+            
+            if (offerTimeout) clearInterval(offerTimeout);
+            
+            offerTimeout = setInterval(() => {
+                seconds--;
+                acceptBtn.innerHTML = `<i class="fa-solid fa-check"></i> Aceitar (${seconds}s)`;
+                if (seconds <= 0) {
+                    declineOffer();
+                }
+            }, 1000);
+        }
+
+        function declineOffer() {
+            if (offerTimeout) clearInterval(offerTimeout);
+            document.getElementById('ride-offer-card').style.display = 'none';
+            if (!activeRide?.driver_id) {
+                activeRide = null;
+            }
+        }
+
+        // Aceita a corrida no Supabase
+        async function acceptOffer() {
+            if (!activeRide || !myProfileId) return;
+            if (offerTimeout) clearInterval(offerTimeout);
+
+            try {
+                // Tenta atribuir a corrida para este motorista se o status ainda for 'requested'
+                const { data, error } = await supabaseClient
+                    .from('rides')
+                    .update({ 
+                        driver_id: myProfileId, 
+                        status: 'accepted',
+                        driver_lat: currentLatitude,
+                        driver_lng: currentLongitude
+                    })
+                    .eq('id', activeRide.id)
+                    .eq('status', 'requested') // Evita race condition se outro aceitar
+                    .select('*, passenger:passenger_id(name)')
+                    .single();
+
+                if (error || !data) {
+                    alert("A corrida já foi aceita por outro motorista.");
+                    declineOffer();
+                    return;
+                }
+
+                // Ocupado no perfil
+                await supabaseClient.from('profiles').update({ status: 'busy' }).eq('id', myProfileId);
+                
+                setupRideActiveState(data);
+                
+            } catch (err) {
+                console.error("Erro ao aceitar corrida:", err);
+                declineOffer();
+            }
+        }
+
+        function setupRideActiveState(ride) {
+            activeRide = ride;
+            document.getElementById('ride-offer-card').style.display = 'none';
+            document.getElementById('driver-active-ride-card').style.display = 'block';
+            document.getElementById('driver-ride-price').textContent = `R$ ${parseFloat(ride.price).toFixed(2).replace('.', ',')}`;
+            document.getElementById('passenger-name-display').textContent = ride.passenger?.name || "Passageiro";
+            document.getElementById('ride-origin-text').textContent = ride.origin_address;
+            document.getElementById('ride-dest-text').textContent = ride.dest_address;
+
+            driverMarker.setIcon(getDriverMarkerIcon('busy'));
+
+            // Desenha rota no mapa
+            drawRideRoute(ride);
+            updateDriverButtonAction();
+
+            // Ouve atualizações de cancelamento
+            subscribeToRideState();
+            subscribeToChat();
+        }
+
+        function drawRideRoute(ride) {
+            if (passengerMarker) map.removeLayer(passengerMarker);
+            if (destMarker) map.removeLayer(destMarker);
+            if (routeLine) map.removeLayer(routeLine);
+
+            passengerMarker = L.marker([ride.origin_lat, ride.origin_lng], { icon: getPassengerMarkerIcon() }).addTo(map);
+            destMarker = L.marker([ride.dest_lat, ride.dest_lng], { icon: getDestinationMarkerIcon() }).addTo(map);
+
+            const coords = generateRouteCoordinates(ride.origin_lat, ride.origin_lng, ride.dest_lat, ride.dest_lng);
+            routeLine = L.polyline(coords, { color: 'var(--accent-yellow)', weight: 4, dashArray: '5, 10' }).addTo(map);
+
+            const bounds = L.latLngBounds([ride.origin_lat, ride.origin_lng], [ride.dest_lat, ride.dest_lng], [currentLatitude, currentLongitude]);
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+
+        function updateDriverButtonAction() {
+            const btn = document.getElementById('btn-driver-action');
+            const statusBadge = document.getElementById('driver-ride-status');
+            statusBadge.textContent = translateStatus(activeRide.status);
+
+            if (activeRide.status === 'accepted') {
+                statusBadge.className = "badge badge-status";
+                btn.innerHTML = `<i class="fa-solid fa-route"></i> Simular Deslocamento até Origem`;
+                btn.style.background = 'var(--accent-blue)';
+                btn.disabled = false;
+            } else if (activeRide.status === 'arrived') {
+                statusBadge.className = "badge badge-online badge-pulse";
+                statusBadge.textContent = "Aguardando Passageiro";
+                btn.innerHTML = `<i class="fa-solid fa-person-walking-dashed-line"></i> Iniciar Viagem (Embarque)`;
+                btn.style.background = 'var(--accent-yellow)';
+                btn.disabled = false;
+            } else if (activeRide.status === 'in_progress') {
+                statusBadge.className = "badge badge-online";
+                btn.innerHTML = `<i class="fa-solid fa-route"></i> Simular Viagem ao Destino`;
+                btn.style.background = 'var(--accent-green)';
+                btn.disabled = false;
+            }
+        }
+
+        function translateStatus(status) {
+            const m = {
+                'accepted': 'Aceito',
+                'arrived': 'Chegou',
+                'in_progress': 'Em viagem',
+                'completed': 'Concluído',
+                'cancelled': 'Cancelado'
+            };
+            return m[status] || status;
+        }
+
+        // Canal de escuta de cancelamentos
+        function subscribeToRideState() {
+            if (rideSubscription) supabaseClient.removeChannel(rideSubscription);
+
+            rideSubscription = supabaseClient
+                .channel(`driver_ride_state_${activeRide.id}`)
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'rides',
+                    filter: `id=eq.${activeRide.id}`
+                }, payload => {
+                    const ride = payload.new;
+                    if (ride.status === 'cancelled') {
+                        alert('O passageiro cancelou a viagem.');
+                        resetDriverState();
+                    }
+                })
+                .subscribe();
+        }
+
+        function handleDriverAction() {
+            if (!activeRide) return;
+
+            if (activeRide.status === 'accepted') {
+                // Simula ir até o passageiro
+                simulateMovement(currentLatitude, currentLongitude, activeRide.origin_lat, activeRide.origin_lng, 'arrived');
+            } else if (activeRide.status === 'arrived') {
+                // Passageiro entrou, inicia a viagem
+                startTrip();
+            } else if (activeRide.status === 'in_progress') {
+                // Simula ir até o destino final
+                simulateMovement(currentLatitude, currentLongitude, activeRide.dest_lat, activeRide.dest_lng, 'completed');
+            }
+        }
+
+        // Executa a simulação passo a passo
+        function simulateMovement(fromLat, fromLng, toLat, toLng, nextStatus) {
+            const btn = document.getElementById('btn-driver-action');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Simulando condução...`;
+
+            // Muda cor da rota
+            if (routeLine) {
+                routeLine.setStyle({ color: 'var(--accent-blue)', dashArray: null });
+            }
+
+            const steps = generateRouteCoordinates(fromLat, fromLng, toLat, toLng, 40);
+            let idx = 0;
+
+            if (simulationInterval) clearInterval(simulationInterval);
+
+            simulationInterval = setInterval(async () => {
+                if (idx >= steps.length) {
+                    clearInterval(simulationInterval);
+                    
+                    // Finalizou deslocamento
+                    currentLatitude = toLat;
+                    currentLongitude = toLng;
+                    
+                    try {
+                        const { data } = await supabaseClient
+                            .from('rides')
+                            .update({ 
+                                status: nextStatus,
+                                driver_lat: toLat,
+                                driver_lng: toLng
+                            })
+                            .eq('id', activeRide.id)
+                            .select()
+                            .single();
+                        
+                        activeRide.status = nextStatus;
+                        
+                        if (nextStatus === 'completed') {
+                            // Soma ganhos
+                            myEarnings += parseFloat(activeRide.price);
+                            myRidesCount += 1;
+                            updateEarningsUI();
+                            alert(`Corrida Concluída com sucesso! R$ ${parseFloat(activeRide.price).toFixed(2)} adicionados aos seus ganhos.`);
+                            resetDriverState();
+                        } else {
+                            updateDriverButtonAction();
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                    return;
+                }
+
+                const pos = steps[idx];
+                driverMarker.setLatLng(pos);
+                map.setView(pos);
+
+                // Rotaciona o carro na direção aproximada
+                if (idx > 0) {
+                    const prev = steps[idx-1];
+                    const angle = Math.atan2(pos[0] - prev[0], pos[1] - prev[1]) * 180 / Math.PI;
+                    // Corrige o ícone rotacionando a div
+                    const markerDiv = driverMarker.getElement()?.querySelector('.driver-marker > div');
+                    if (markerDiv) {
+                        markerDiv.style.transform = `rotate(${90 - angle}deg)`;
+                    }
+                }
+
+                // Salva a nova geolocalização no Supabase para o passageiro ouvir
+                try {
+                    await supabaseClient
+                        .from('rides')
+                        .update({ 
+                            driver_lat: pos[0],
+                            driver_lng: pos[1]
+                        })
+                        .eq('id', activeRide.id);
+                } catch(e) {}
+
+                idx++;
+            }, 300); // 300ms por frame para ser rápido mas perceptível
+        }
+
+        async function startTrip() {
+            try {
+                const { data } = await supabaseClient
+                    .from('rides')
+                    .update({ status: 'in_progress' })
+                    .eq('id', activeRide.id)
+                    .select()
+                    .single();
+
+                activeRide.status = 'in_progress';
+                updateDriverButtonAction();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function resetDriverState() {
+            activeRide = null;
+            if (simulationInterval) clearInterval(simulationInterval);
+            if (rideSubscription) supabaseClient.removeChannel(rideSubscription);
+            if (chatSubscription) supabaseClient.removeChannel(chatSubscription);
+            
+            rideSubscription = null;
+            chatSubscription = null;
+
+            document.getElementById('driver-active-ride-card').style.display = 'none';
+            
+            if (passengerMarker) map.removeLayer(passengerMarker);
+            if (destMarker) map.removeLayer(destMarker);
+            if (routeLine) map.removeLayer(routeLine);
+
+            driverMarker.setIcon(getDriverMarkerIcon('available'));
+            
+            // Fica livre de novo no perfil
+            if (myProfileId && isOnline) {
+                await supabaseClient.from('profiles').update({ status: 'active' }).eq('id', myProfileId);
+            }
+        }
+
+        // --- CHAT MOTORISTA ---
+        async function subscribeToChat() {
+            if (!activeRide || chatSubscription) return;
+
+            const { data: messages } = await supabaseClient
+                .from('messages')
+                .select('*')
+                .eq('ride_id', activeRide.id)
+                .order('created_at', { ascending: true });
+
+            const list = document.getElementById('driver-chat-messages-list');
+            list.innerHTML = '';
+            
+            if (messages) {
+                messages.forEach(msg => appendMessageUI(msg.content, msg.sender_role === 'driver'));
+            }
+
+            chatSubscription = supabaseClient
+                .channel(`driver_chat_${activeRide.id}`)
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages',
+                    filter: `ride_id=eq.${activeRide.id}`
+                }, payload => {
+                    const newMsg = payload.new;
+                    appendMessageUI(newMsg.content, newMsg.sender_role === 'driver');
+                })
+                .subscribe();
+        }
+
+        function appendMessageUI(text, isMine) {
+            const list = document.getElementById('driver-chat-messages-list');
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${isMine ? 'mine' : 'other'}`;
+            bubble.textContent = text;
+            list.appendChild(bubble);
+            list.scrollTop = list.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('driver-chat-input-text');
+            const content = input.value.trim();
+            if (!content || !activeRide) return;
+
+            try {
+                await supabaseClient
+                    .from('messages')
+                    .insert([{
+                        ride_id: activeRide.id,
+                        sender_role: 'driver',
+                        content: content
+                    }]);
+                
+                input.value = '';
+            } catch (err) {
+                console.error("Erro ao enviar mensagem:", err);
+            }
+        }
+    </script>
+</body>
+</html>

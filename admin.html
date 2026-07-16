@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uber Administração - Control Panel</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body style="overflow: hidden;">
+
+    <div class="portal-header">
+        <div class="portal-title">
+            <i class="fa-solid fa-gauge-high" style="color: var(--accent-blue);"></i> Control Tower <span>Admin</span>
+        </div>
+        <div id="connection-status" class="badge badge-offline"><i class="fa-solid fa-circle-xmark"></i> Desconectado</div>
+    </div>
+
+    <div class="admin-layout">
+        <!-- Esquerda: Painéis e Tabelas -->
+        <div style="padding: 24px; overflow-y: auto; height: 100%; display: flex; flex-direction: column; gap: 24px;">
+            
+            <!-- Cards de Métricas -->
+            <div class="admin-grid">
+                <div class="glass-card admin-card">
+                    <h3>Faturamento Total</h3>
+                    <div id="metric-revenue" class="value">R$ 0,00</div>
+                    <div class="trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> +12% esta hora</div>
+                </div>
+                <div class="glass-card admin-card">
+                    <h3>Corridas Totais</h3>
+                    <div id="metric-rides" class="value">0</div>
+                    <div class="trend trend-up"><i class="fa-solid fa-car"></i> Ativas: <span id="metric-active-rides">0</span></div>
+                </div>
+                <div class="glass-card admin-card">
+                    <h3>Motoristas</h3>
+                    <div id="metric-drivers" class="value">0</div>
+                    <div class="trend trend-up" style="color: var(--accent-blue);"><i class="fa-solid fa-users"></i> Online: <span id="metric-online-drivers">0</span></div>
+                </div>
+                <div class="glass-card admin-card">
+                    <h3>Nota Média</h3>
+                    <div id="metric-rating" class="value">4.8</div>
+                    <div class="trend trend-up" style="color: var(--accent-yellow);"><i class="fa-solid fa-star"></i> Escopo Geral</div>
+                </div>
+            </div>
+
+            <!-- Tabela de Corridas Atuais/Recentes -->
+            <div class="table-container">
+                <div style="padding: 16px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="font-family: var(--font-heading); font-size: 16px; font-weight: 700;"><i class="fa-solid fa-list-check"></i> Monitoramento de Viagens</h3>
+                    <span style="font-size: 11px; color: var(--text-secondary);">Recarregar em Tempo Real</span>
+                </div>
+                <table id="rides-table">
+                    <thead>
+                        <tr>
+                            <th>Passageiro</th>
+                            <th>Motorista</th>
+                            <th>Categoria</th>
+                            <th>Valor</th>
+                            <th>Status</th>
+                            <th>Nota</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rides-table-body">
+                        <!-- Inserido via JS -->
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 20px;">Carregando viagens...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Painel de Gerenciamento e Tarifas -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="glass-card">
+                    <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 16px;"><i class="fa-solid fa-sliders"></i> Ajuste Tarifário</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                        <div class="input-group">
+                            <label>Base UberX (R$)</label>
+                            <input type="number" class="input-control" value="5.00" step="0.50">
+                        </div>
+                        <div class="input-group">
+                            <label>Base UberBlack (R$)</label>
+                            <input type="number" class="input-control" value="10.00" step="1.00">
+                        </div>
+                    </div>
+                    <button class="btn-primary" onclick="alert('Tarifas atualizadas na nuvem!')">Salvar Configurações</button>
+                </div>
+
+                <div class="glass-card">
+                    <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 16px;"><i class="fa-solid fa-circle-nodes"></i> Supabase Status</h3>
+                    <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
+                        Painel conectado diretamente ao Supabase. Todas as mudanças feitas por passageiros e motoristas refletirão imediatamente.
+                    </p>
+                    <button onclick="clearSupabaseCredentials()" class="btn-secondary" style="border-color: var(--accent-red); color: var(--accent-red);"><i class="fa-solid fa-plug-circle-xmark"></i> Desconectar Supabase</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Direita: Mapa de Monitoramento Global -->
+        <div style="position: relative; height: 100%;">
+            <div style="position: absolute; top: 12px; left: 12px; z-index: 1000;" class="glass-card">
+                <h4 style="font-size: 12px; font-weight: 700;"><i class="fa-solid fa-satellite"></i> Live GPS Feed</h4>
+                <p style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Carros verdes: Disponíveis | Laranjas: Em Corrida</p>
+            </div>
+            <div id="map" class="map-container"></div>
+        </div>
+    </div>
+
+    <!-- Supabase Client & Leaflet JS -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script src="js/supabase-config.js"></script>
+    <script src="js/shared.js"></script>
+
+    <script>
+        let map;
+        let driverMarkers = {}; // driver_id -> Leaflet Marker
+        let activeRouteLines = {}; // ride_id -> Leaflet Polyline
+        let profilesCache = {}; // id -> profile data
+
+        window.addEventListener('DOMContentLoaded', () => {
+            checkSupabaseConnection();
+            initMap();
+
+            if (supabaseClient) {
+                document.getElementById('connection-status').className = "badge badge-online";
+                document.getElementById('connection-status').innerHTML = `<i class="fa-solid fa-wifi"></i> Conectado`;
+                
+                startAdminMonitoring();
+            }
+        });
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([-23.5615, -46.6560], 12);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+            }).addTo(map);
+        }
+
+        async function startAdminMonitoring() {
+            // 1. Carrega perfis para cache
+            const { data: profiles } = await supabaseClient.from('profiles').select('*');
+            if (profiles) {
+                profiles.forEach(p => {
+                    profilesCache[p.id] = p;
+                });
+            }
+
+            // 2. Carrega corridas iniciais
+            fetchAndRenderRides();
+
+            // 3. Ouve alterações de corridas (Tabela RIDES) em tempo real
+            supabaseClient
+                .channel('admin_rides_feed')
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'rides'
+                }, payload => {
+                    fetchAndRenderRides();
+                    handleLiveMapUpdate(payload);
+                })
+                .subscribe();
+
+            // 4. Ouve alterações de status de motoristas (Tabela PROFILES)
+            supabaseClient
+                .channel('admin_drivers_feed')
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: 'role=eq.driver'
+                }, payload => {
+                    const profile = payload.new;
+                    profilesCache[profile.id] = profile;
+                    updateMetrics();
+                })
+                .subscribe();
+        }
+
+        async function fetchAndRenderRides() {
+            const { data: rides, error } = await supabaseClient
+                .from('rides')
+                .select('*, passenger:passenger_id(name), driver:driver_id(name)')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("Erro ao buscar viagens: ", error);
+                return;
+            }
+
+            renderRidesTable(rides);
+            calculateMetrics(rides);
+        }
+
+        function renderRidesTable(rides) {
+            const tbody = document.getElementById('rides-table-body');
+            tbody.innerHTML = '';
+
+            if (!rides || rides.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenhuma viagem registrada ainda.</td></tr>`;
+                return;
+            }
+
+            rides.forEach(ride => {
+                const tr = document.createElement('tr');
+                
+                const passName = ride.passenger?.name || "Passageiro";
+                const drivName = ride.driver?.name || `<span style="color: var(--accent-yellow)">Procurando...</span>`;
+                const ratingDisplay = ride.rating ? `${ride.rating} ★` : `<span style="color: var(--text-secondary)">--</span>`;
+                
+                const statusBadge = `<span class="badge ${getStatusClass(ride.status)}">${translateStatus(ride.status)}</span>`;
+
+                tr.innerHTML = `
+                    <td><strong>${passName}</strong></td>
+                    <td>${drivName}</td>
+                    <td>${ride.category}</td>
+                    <td>R$ ${parseFloat(ride.price).toFixed(2).replace('.', ',')}</td>
+                    <td>${statusBadge}</td>
+                    <td>${ratingDisplay}</td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function getStatusClass(status) {
+            const m = {
+                'requested': 'badge-status',
+                'accepted': 'badge-online',
+                'arrived': 'badge-online',
+                'in_progress': 'badge-online',
+                'completed': 'badge-online',
+                'cancelled': 'badge-offline'
+            };
+            return m[status] || 'badge-status';
+        }
+
+        function translateStatus(status) {
+            const m = {
+                'requested': 'Procurando',
+                'accepted': 'Aceito',
+                'arrived': 'Chegou',
+                'in_progress': 'Em viagem',
+                'completed': 'Concluído',
+                'cancelled': 'Cancelado'
+            };
+            return m[status] || status;
+        }
+
+        // Calcula métricas no topo
+        function calculateMetrics(rides) {
+            let totalRevenue = 0;
+            let totalRides = rides.length;
+            let activeCount = 0;
+            let ratedRidesCount = 0;
+            let ratingSum = 0;
+
+            rides.forEach(ride => {
+                if (ride.status === 'completed') {
+                    totalRevenue += parseFloat(ride.price);
+                    if (ride.rating) {
+                        ratedRidesCount++;
+                        ratingSum += ride.rating;
+                    }
+                }
+                if (['requested', 'accepted', 'arrived', 'in_progress'].includes(ride.status)) {
+                    activeCount++;
+                }
+            });
+
+            const avgRating = ratedRidesCount > 0 ? (ratingSum / ratedRidesCount).toFixed(1) : "4.8";
+
+            document.getElementById('metric-revenue').textContent = `R$ ${totalRevenue.toFixed(2).replace('.', ',')}`;
+            document.getElementById('metric-rides').textContent = totalRides;
+            document.getElementById('metric-active-rides').textContent = activeCount;
+            document.getElementById('metric-rating').textContent = `${avgRating} ★`;
+            
+            updateMetrics();
+        }
+
+        function updateMetrics() {
+            // Calcula total de motoristas online no cache
+            let onlineCount = 0;
+            let totalCount = 0;
+
+            for (const id in profilesCache) {
+                const p = profilesCache[id];
+                if (p.role === 'driver') {
+                    totalCount++;
+                    if (p.status !== 'offline') {
+                        onlineCount++;
+                    }
+                }
+            }
+
+            document.getElementById('metric-drivers').textContent = totalCount;
+            document.getElementById('metric-online-drivers').textContent = onlineCount;
+        }
+
+        // Lógica de Renderização em Tempo Real no Mapa Global
+        function handleLiveMapUpdate(payload) {
+            const ride = payload.new || payload.old;
+            const eventType = payload.eventType;
+
+            if (eventType === 'DELETE' || ride.status === 'completed' || ride.status === 'cancelled') {
+                // Remove marcadores e rotas finalizados
+                if (driverMarkers[ride.driver_id]) {
+                    map.removeLayer(driverMarkers[ride.driver_id]);
+                    delete driverMarkers[ride.driver_id];
+                }
+                if (activeRouteLines[ride.id]) {
+                    map.removeLayer(activeRouteLines[ride.id]);
+                    delete activeRouteLines[ride.id];
+                }
+                return;
+            }
+
+            // Se o motorista está ativo na corrida
+            if (ride.driver_id && ride.driver_lat && ride.driver_lng) {
+                const pos = [ride.driver_lat, ride.driver_lng];
+                
+                // Atualiza marcador de carro no mapa global
+                const statusColor = ride.status === 'in_progress' ? 'busy' : 'available';
+                if (!driverMarkers[ride.driver_id]) {
+                    driverMarkers[ride.driver_id] = L.marker(pos, { icon: getDriverMarkerIcon(statusColor) }).addTo(map);
+                } else {
+                    driverMarkers[ride.driver_id].setLatLng(pos);
+                    driverMarkers[ride.driver_id].setIcon(getDriverMarkerIcon(statusColor));
+                }
+
+                // Desenha a linha da rota ativa
+                if (!activeRouteLines[ride.id]) {
+                    const coords = generateRouteCoordinates(ride.origin_lat, ride.origin_lng, ride.dest_lat, ride.dest_lng);
+                    activeRouteLines[ride.id] = L.polyline(coords, { 
+                        color: ride.status === 'in_progress' ? 'var(--accent-green)' : 'var(--accent-yellow)', 
+                        weight: 3, 
+                        opacity: 0.6 
+                    }).addTo(map);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
