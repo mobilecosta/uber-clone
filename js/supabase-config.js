@@ -1,8 +1,8 @@
 // supabase-config.js - Configuração e Inicialização do Cliente Supabase
 
-// Recupera as credenciais do localStorage
-let SUPABASE_URL = localStorage.getItem('supabase_url') || '';
-let SUPABASE_KEY = localStorage.getItem('supabase_key') || '';
+// Recupera as credenciais do localStorage ou usa as padrão do projeto
+let SUPABASE_URL = localStorage.getItem('supabase_url') || 'https://lgkwvynotzuasvtyjbap.supabase.co';
+let SUPABASE_KEY = localStorage.getItem('supabase_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxna3d2eW5vdHp1YXN2dHlqYmFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDE3NTU5OCwiZXhwIjoyMDk5NzUxNTk4fQ.R2-RW_E0nHf_mnMi3ybJaoc9TyDteMSUcELc1ytwGhU';
 let supabaseClient = null;
 
 // Verifica se as credenciais estão salvas e inicializa o cliente
